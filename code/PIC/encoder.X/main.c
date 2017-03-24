@@ -13,6 +13,9 @@
 // ----------------------
 // Datasheet p. 268
 
+// OSC frequency for delay functions
+#define _XTAL_FREQ 16000000 // 16MHz
+
 // CONFIG1H
 #pragma config OSC = HSPLL      // Oscillator Selection bits (HS oscillator, PLL enabled (clock frequency = 4 x FOSC1))
 #pragma config FCMEN = OFF      // Fail-Safe Clock Monitor Enable bit (Fail-Safe Clock Monitor disabled)
@@ -35,7 +38,7 @@
 #pragma config T1OSCMX = ON     // Timer1 Oscillator MUX (Low-power Timer1 operation when microcontroller is in Sleep mode)
 
 // CONFIG3H
-#pragma config MCLRE = ON       // MCLR Pin Enable bit (Enabled)
+#pragma config MCLRE = OFF      // MCLR Pin Enable bit (Disabled)
 
 // CONFIG4L
 #pragma config STVREN = ON      // Stack Full/Underflow Reset Enable bit (Stack full/underflow will cause Reset)
@@ -66,18 +69,55 @@
 #pragma config EBTRB = OFF      // Boot Block Table Read Protection bit (Boot Block (000000-0001FFh) not protected from table reads executed in other blocks)
 
 
-// Function prototypes
+
+
+// -----------------------
+// Function Prototypes
+// -----------------------
 void interrupt low_priority low_isr(void);
 void interrupt high_isr(void);
 
+void flash_leds(char n);
+
+
+
+
+// -----------------------
+// State variables
+// -----------------------
+int rotation = 0;
+int velocity = 0;
 
 void main() {
+    // Interrupts configuration
+    RCONbits.IPEN = 1; // Enable interrupt priority
+    INTCONbits.GIEH = 1; // Enable high priority interrupts
+    INTCONbits.GIEL = 1; // Enable low priority interrupts
+
     // QEI module configuration
-    QEICONbits.VELM = 0; // Velocity mode disabled
+    QEICONbits.VELM = 1; // Velocity mode enabled
     QEICONbits.ERROR = 0; // Disable overflow / underflow error
-    QEICONbits.QEIM = 0b101; // ?? I am not sure what to choose between 101 and 001
-    
-    
+    QEICONbits.QEIM = 0b001; // MODE: Two clocks per QEA pulse, INDX resets POSCNT.
+
+    // QEI Interrupts
+    PIE3bits.IC2QEIE = 1; // Enable QEI interrupts
+    IPR3bits.IC2QEIP = 0; // Set QEI interrupts to low priority
+
+    // Status LEDs configuration
+    TRISBbits.RB1 = 0; // Set RB1 as output for the green led
+    TRISBbits.RB2 = 0; // Set RB2 as output for the red led
+
+    // Button configuration
+    TRISBbits.RB0 = 1; // Set RB0 as the input for the button
+    INTCONbits.RBIE = 1; // Enable interrupts on the RB ports
+    INTCON2bits.RBIP = 0; // Set RB interrupts to low priority
+
+    // Flash LEDs 3 times to show the controller is working
+    flash_leds(3);
+
+    // -----------------------
+    // Main routine
+    // -----------------------
     while (1) {
 
     }
@@ -87,13 +127,37 @@ void main() {
 // Interrupt routines
 // -----------------------
 
-// High priority interrupt
-void interrupt high_isr (void)
-{
+void interrupt high_isr(void) {
 
 }
-// Low priority interrupt
-void interrupt low_priority low_isr (void)
-{
-    
+
+void interrupt low_priority low_isr(void) {
+    if (IC2QEIF) {
+        if (QEICONbits.UPDOWN) {
+            rotation++;
+        } else {
+            rotation--;
+        }
+
+        IC2QEIF = 0;
+    } else if (INTCONbits.RBIF) {
+        
+    }
+}
+
+
+
+// Function to make the LEDs blink
+
+void flash_leds(char n) {
+    for (int i = 0; i < n; i++) {
+        if (i > 0) {
+            __delay_ms(100);
+        }
+        LATBbits.LATB1 = 1;
+        LATBbits.LATB2 = 1;
+        __delay_ms(100);
+        LATBbits.LATB1 = 0;
+        LATBbits.LATB2 = 0;
+    }
 }

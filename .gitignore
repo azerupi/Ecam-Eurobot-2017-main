@@ -6,3 +6,5 @@ doc.fls
 doc.log
 doc.out
 .DS_Store
+/code/PIC/encoder.X/build/default/
+/code/PIC/encoder.X/dist/default/
