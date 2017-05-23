@@ -93,6 +93,21 @@ void main() {
     RCONbits.IPEN = 1; // Enable interrupt priority
     INTCONbits.GIEH = 1; // Enable high priority interrupts
     INTCONbits.GIEL = 1; // Enable low priority interrupts
+    
+    // SPI configuration
+    SSPCONbits.WCOL = 0; // No collision
+    SSPCONbits.SSPOV = 0; // No overflow
+    SSPCONbits.SSPEN = 1; // configures SCK, SDO and SDI as serial port pins
+    SSPCONbits.CKP = 0; // SPI set idle state for clock at low level
+    SSPCONbits.SSPM = 0b0100; // SPI Slave mode, clock = SCK pin. SS pin control enabled. 
+    SSPSTATbits.CKE = 1; // SPI clock edge select, data transmitted on rising edge of SCK
+    TRISCbits.TRISC4 = 1; // SDI must have TRISC<4> set
+    TRISCbits.TRISC5 = 0; // SDO must have TRISC<5> cleared
+    TRISCbits.TRISC3 = 1; // SCK (Slave mode) must have TRISC<3> set
+    // TRISAbits.TRISA5 = 1; DOES NOT EXIST??? 
+    TRISA = TRISA | 0b00100000; // SS must have TRISA<5> set (workaround)
+    
+    PIR1bits.SSPIF = 0; // Set the SPI interruption flag to zero (needed in setup?)
 
     // QEI module configuration
     QEICONbits.VELM = 1; // Velocity mode enabled
@@ -113,7 +128,7 @@ void main() {
     INTCON2bits.RBIP = 0; // Set RB interrupts to low priority
 
     // Flash LEDs 3 times to show the controller is working
-    flash_leds(3);
+    flash_leds(3, 400);
 
     // -----------------------
     // Main routine
@@ -149,14 +164,14 @@ void interrupt low_priority low_isr(void) {
 
 // Function to make the LEDs blink
 
-void flash_leds(char n) {
+void flash_leds(char n, int period) {
     for (int i = 0; i < n; i++) {
         if (i > 0) {
-            __delay_ms(100);
+            __delay_ms(period/2);
         }
         LATBbits.LATB1 = 1;
         LATBbits.LATB2 = 1;
-        __delay_ms(100);
+        __delay_ms(period/2);
         LATBbits.LATB1 = 0;
         LATBbits.LATB2 = 0;
     }
